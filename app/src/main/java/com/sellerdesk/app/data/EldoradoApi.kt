@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
  * Token life is 15 minutes; the app refreshes it at 12.
  */
 object Endpoints {
-    const val BASE = "https://eldorado.gg"
+    const val BASE = "https://www.eldorado.gg"
     const val TOKEN = "/api/authentication/seller/token"
 
     // GET. displayFilter is required by Eldorado; we only want orders where we are the seller.
