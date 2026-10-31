@@ -16,19 +16,20 @@ import java.util.concurrent.TimeUnit
 /**
  * ALL Eldorado URLs live here, in one place.
  *
- * CONFIRMED by Eldorado's help center: the token URL, 15-minute token lifetime.
- * NOT CONFIRMED (the public help pages don't list them): the order paths and the
- * Authorization prefix. Open the Seller API reference linked from
- * https://www.eldorado.gg/dashboard/seller-api, compare, and edit the lines marked VERIFY.
+ * All paths below come from Eldorado's seller Swagger file (https://www.eldorado.gg/swagger/seller).
+ * Token life is 15 minutes; the app refreshes it at 12.
  */
 object Endpoints {
     const val BASE = "https://eldorado.gg"
     const val TOKEN = "/api/authentication/seller/token"
 
-    const val ORDERS = "/api/seller/orders"                      // VERIFY
-    const val DELIVER = "/api/seller/orders/{id}/deliver"        // VERIFY
-    const val CANCEL = "/api/seller/orders/{id}/cancel"          // VERIFY
-    const val AUTH_PREFIX = "Bearer "                            // VERIFY
+    // GET. displayFilter is required by Eldorado; we only want orders where we are the seller.
+    const val ORDERS =
+        "/api/v1/orders/me/seller/orders?displayFilter=DisplaySellingOrders&orderGroup=Regular" +
+            "&isAscendingDateOrder=false&pageSize=50"
+    const val DELIVER = "/api/v1/orders/me/{id}/deliver"   // PUT
+    const val CANCEL = "/api/v1/orders/me/{id}/cancel"     // POST, body {"reason": "..."}
+    const val AUTH_PREFIX = "Bearer "
 }
 
 class ApiException(val code: Int, message: String) : Exception(message)
@@ -134,12 +135,13 @@ class EldoradoApi(private val store: CredentialStore) {
     }
 
     suspend fun markDelivered(id: String): Result<Unit> = runCatching {
-        val (code, _) = call("POST", Endpoints.DELIVER.replace("{id}", id))
+        val (code, _) = call("PUT", Endpoints.DELIVER.replace("{id}", id))
         if (code !in 200..299) throw ApiException(code, "Could not mark delivered (HTTP $code)")
     }
 
-    suspend fun cancel(id: String): Result<Unit> = runCatching {
-        val (code, _) = call("POST", Endpoints.CANCEL.replace("{id}", id))
+    suspend fun cancel(id: String, reason: String): Result<Unit> = runCatching {
+        val body = JSONObject().put("reason", reason).toString()
+        val (code, _) = call("POST", Endpoints.CANCEL.replace("{id}", id), body)
         if (code !in 200..299) throw ApiException(code, "Could not cancel (HTTP $code)")
     }
 }
