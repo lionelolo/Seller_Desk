@@ -75,7 +75,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun markDelivered(order: Order, onDone: () -> Unit) = act(order, onDone) { api.markDelivered(order.id) to "Marked as delivered" }
 
-    fun cancel(order: Order, onDone: () -> Unit) = act(order, onDone) { api.cancel(order.id) to "Order cancelled" }
+    fun cancel(order: Order, reason: String, onDone: () -> Unit) =
+        act(order, onDone) { api.cancel(order.id, reason) to "Order cancelled" }
 
     private fun act(
         order: Order,
