@@ -9,6 +9,7 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -288,9 +290,19 @@ private fun StatusChip(order: Order) {
 
 // ───────────────────────── Detail ─────────────────────────
 
+/** Eldorado requires a reason when a seller cancels. Values are Eldorado's own enum names. */
+private val CANCEL_REASONS = listOf(
+    "Out_Of_Stock" to "Out of stock",
+    "Buyer_Did_Not_Respond" to "Buyer did not respond",
+    "Buyer_Does_Not_Need_It_Anymore" to "Buyer doesn't need it anymore",
+    "Mutual_Agreement" to "Mutual agreement",
+    "Other" to "Other",
+)
+
 @Composable
 fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
     var confirmCancel by remember { mutableStateOf(false) }
+    var cancelReason by remember { mutableStateOf(CANCEL_REASONS.first().first) }
     var confirmDeliver by remember { mutableStateOf(false) }
     val busy = vm.busyId == order.id
 
@@ -354,9 +366,23 @@ fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = { confirmCancel = false },
             title = { Text("Cancel this order?") },
-            text = { Text("This is live on Eldorado and can't be undone from here.") },
+            text = {
+                Column {
+                    Text("This is live on Eldorado and can't be undone from here. Pick a reason:")
+                    Spacer(Modifier.height(8.dp))
+                    CANCEL_REASONS.forEach { (value, label) ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { cancelReason = value },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = cancelReason == value, onClick = { cancelReason = value })
+                            Text(label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
             confirmButton = {
-                TextButton(onClick = { confirmCancel = false; vm.cancel(order, onBack) }) {
+                TextButton(onClick = { confirmCancel = false; vm.cancel(order, cancelReason, onBack) }) {
                     Text("Cancel order", color = MaterialTheme.colorScheme.error)
                 }
             },
