@@ -4,9 +4,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * One Eldorado order, parsed defensively: Eldorado's exact field names are not
- * in the public help pages, so we try several likely keys. If a field shows up
- * empty in the app, check Settings > Diagnostics and add the real key name here.
+ * One Eldorado order. Field names come from Eldorado's seller Swagger file.
+ * Order states: Paid, Delivered, Disputed, Received, Completed, Canceled, PendingReview.
  */
 data class Order(
     val id: String,
@@ -16,35 +15,28 @@ data class Order(
     val status: String,
     val createdAt: String,
 ) {
-    /** True while the seller still has something to do (deliver). */
+    /** Eldorado state "Paid" = the buyer paid and the seller still has to deliver. */
     val needsAction: Boolean
-        get() {
-            val s = status.lowercase()
-            val done = listOf("deliver", "complete", "cancel", "refund", "dispute", "closed", "expired")
-            val open = listOf("paid", "pending", "await", "process", "new", "active", "wait", "ready")
-            if (s.isBlank()) return true
-            if (done.any { s.contains(it) } && !s.contains("undeliver") && !s.contains("not delivered")) return false
-            return open.any { s.contains(it) } || s == "1" || s == "0"
-        }
+        get() = status.equals("Paid", ignoreCase = true)
 
     companion object {
         fun fromJson(o: JSONObject): Order {
-            val offer = o.optJSONObject("offer")
-            val buyerObj = o.optJSONObject("buyer") ?: o.optJSONObject("user")
+            // Field names from Eldorado's swagger: OrderPrivateViewModel.
+            val offer = o.optJSONObject("orderOfferDetails")
+            val price = o.optJSONObject("totalPrice")
+            val amountText = price?.let {
+                val a = it.str("amount").removeSuffix(".0")
+                val c = it.str("currency")
+                if (a.isEmpty()) "" else if (c.isEmpty()) a else "$a $c"
+            }.orEmpty()
             return Order(
-                id = o.str("id", "orderId", "order_id", "uuid"),
-                title = o.str("title", "offerTitle", "offerName", "itemName", "name")
-                    .ifEmpty { offer?.str("title", "name", "offerTitle").orEmpty() }
-                    .ifEmpty { "Order" },
-                buyer = o.str("buyerName", "buyerUsername", "buyer_name", "username")
-                    .ifEmpty { buyerObj?.str("username", "name", "displayName").orEmpty() }
-                    .ifEmpty { o.str("buyer") }
-                    .ifEmpty { "Buyer" },
-                amount = o.str("totalPrice", "total", "price", "amount", "sellerEarnings")
-                    .ifEmpty { o.optJSONObject("totalPrice")?.str("amount", "value").orEmpty() }
-                    .ifEmpty { "-" },
-                status = o.str("state", "status", "orderState", "orderStatus"),
-                createdAt = o.str("createdDate", "createdAt", "created", "dateCreated", "date"),
+                id = o.str("id"),
+                title = offer?.str("offerTitle").orEmpty().ifEmpty { "Order" },
+                buyer = o.str("buyerUsername").ifEmpty { "Buyer" },
+                amount = amountText.ifEmpty { "-" },
+                // "state" is an object: {"state": "Paid", "createdDate": "..."}
+                status = o.optJSONObject("state")?.str("state").orEmpty(),
+                createdAt = o.str("createdDate"),
             )
         }
 
