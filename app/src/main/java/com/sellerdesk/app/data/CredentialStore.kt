@@ -83,6 +83,11 @@ class CredentialStore(context: Context) {
         get() = state.getLong("lastAlertAt", 0L)
         set(v) = state.edit().putLong("lastAlertAt", v).apply()
 
+    /** "online" / "offline" / "" - what this app last set. Eldorado has no call to read the real status. */
+    var onlineChoice: String
+        get() = state.getString("onlineChoice", "").orEmpty()
+        set(v) = state.edit().putString("onlineChoice", v).apply()
+
     /** Last API call summary (never contains the secret). Shown in Settings. */
     var lastDiag: String
         get() = state.getString("diag", "No calls yet.").orEmpty()

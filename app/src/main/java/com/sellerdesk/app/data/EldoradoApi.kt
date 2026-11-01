@@ -1,5 +1,6 @@
 package com.sellerdesk.app.data
 
+import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -11,6 +12,8 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
 /**
@@ -29,10 +32,29 @@ object Endpoints {
             "&isAscendingDateOrder=false&pageSize=50"
     const val DELIVER = "/api/v1/orders/me/{id}/deliver"   // PUT
     const val CANCEL = "/api/v1/orders/me/{id}/cancel"     // POST, body {"reason": "..."}
+    const val EXTEND = "/api/v1/orders/me/{id}/extend-delivery-time"            // POST {"time","reason"}
+    const val CORRECTION = "/api/v1/orders/me/{id}/delivery-details/correction" // POST {"message"}
+    const val INVOICE = "/api/v1/orders/me/invoice/generate"                    // GET fromDate, untilDate
+
+    const val ONLINE = "/api/offerUser/me/switchOnline"    // PUT
+    const val OFFLINE = "/api/offerUser/me/switchOffline"  // PUT
+
+    const val NOTIFICATIONS = "/api/notifications/me?pageSize=30"
+    const val UNREAD = "/api/notifications/me/unread-count"
+    const val READ_ONE = "/api/notifications/me/{id}/markAsRead"   // PUT
+    const val READ_ALL = "/api/notifications/me/markAllAsRead"     // PUT
+
+    const val BOOST_REQUESTS =
+        "/api/boostingOffers/me/boostingRequests/received?filter=ActiveRequests&pageSize=20"
+    const val BOOST_SUBS = "/api/boostingOffers/me/boostingSubscriptions"
+
     const val AUTH_PREFIX = "Bearer "
 }
 
 class ApiException(val code: Int, message: String) : Exception(message)
+
+/** A raw file reply (used for invoices, whose format Eldorado doesn't document). */
+class Download(val code: Int, val contentType: String, val bytes: ByteArray)
 
 class EldoradoApi(private val store: CredentialStore) {
 
@@ -89,7 +111,7 @@ class EldoradoApi(private val store: CredentialStore) {
     private fun exec(method: String, path: String, body: String?): Pair<Int, String> {
         val rb = when {
             body != null -> body.toRequestBody(json)
-            method == "GET" -> null
+            method == "GET" || method == "DELETE" -> null
             else -> "{}".toRequestBody(json)
         }
         val req = Request.Builder()
@@ -111,10 +133,18 @@ class EldoradoApi(private val store: CredentialStore) {
                     ensureToken()
                     r = exec(method, path, body)
                 }
-                store.lastDiag = "$method $path -> ${r.first}\n" + r.second.take(400)
+                // Routine polling that works shouldn't overwrite the Diagnostics of the last real action.
+                val polling = path == Endpoints.ORDERS || path == Endpoints.UNREAD
+                if (!(polling && r.first in 200..299)) {
+                    store.lastDiag = "$method $path -> ${r.first}\n" + r.second.take(400)
+                }
                 r
             }
         }
+
+    private fun ok(code: Int, what: String) {
+        if (code !in 200..299) throw ApiException(code, "$what (HTTP $code)")
+    }
 
     suspend fun login(id: String, secret: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
@@ -128,20 +158,142 @@ class EldoradoApi(private val store: CredentialStore) {
         tokenAt = 0
     }
 
+    // ───────── orders ─────────
+
     suspend fun orders(): Result<List<Order>> = runCatching {
         val (code, text) = call("GET", Endpoints.ORDERS)
-        if (code !in 200..299) throw ApiException(code, "Could not load orders (HTTP $code)")
+        ok(code, "Could not load orders")
         Order.parseList(text)
     }
 
     suspend fun markDelivered(id: String): Result<Unit> = runCatching {
         val (code, _) = call("PUT", Endpoints.DELIVER.replace("{id}", id))
-        if (code !in 200..299) throw ApiException(code, "Could not mark delivered (HTTP $code)")
+        ok(code, "Could not mark delivered")
     }
 
     suspend fun cancel(id: String, reason: String): Result<Unit> = runCatching {
         val body = JSONObject().put("reason", reason).toString()
         val (code, _) = call("POST", Endpoints.CANCEL.replace("{id}", id), body)
-        if (code !in 200..299) throw ApiException(code, "Could not cancel (HTTP $code)")
+        ok(code, "Could not cancel")
+    }
+
+    suspend fun extendDelivery(id: String, time: String, reason: String): Result<Unit> = runCatching {
+        val body = JSONObject().put("time", time).put("reason", reason).toString()
+        val (code, _) = call("POST", Endpoints.EXTEND.replace("{id}", id), body)
+        ok(code, "Could not extend delivery time")
+    }
+
+    suspend fun requestCorrection(id: String, message: String): Result<Unit> = runCatching {
+        val body = JSONObject().put("message", message).toString()
+        val (code, _) = call("POST", Endpoints.CORRECTION.replace("{id}", id), body)
+        ok(code, "Could not send the request")
+    }
+
+    /** Invoice for the last [days] days. Eldorado doesn't document the file format, so we return raw bytes. */
+    suspend fun invoice(days: Int): Result<Download> = runCatching {
+        val until = Instant.now()
+        val from = until.minus(days.toLong(), ChronoUnit.DAYS)
+        val path = Endpoints.INVOICE +
+            "?fromDate=${Uri.encode(from.toString())}&untilDate=${Uri.encode(until.toString())}"
+        withContext(Dispatchers.IO) {
+            lock.withLock {
+                ensureToken()
+                val req = Request.Builder()
+                    .url(Endpoints.BASE + path)
+                    .header("Authorization", Endpoints.AUTH_PREFIX + token)
+                    .build()
+                http.newCall(req).execute().use { r ->
+                    val bytes = r.body?.bytes() ?: ByteArray(0)
+                    val type = r.header("Content-Type").orEmpty()
+                    store.lastDiag = "GET ${Endpoints.INVOICE} -> ${r.code}\n$type, ${bytes.size} bytes"
+                    Download(r.code, type, bytes)
+                }
+            }
+        }
+    }
+
+    // ───────── listings ─────────
+
+    /** Loads the first 50 listings of each offer type. A type that fails is reported, not fatal. */
+    suspend fun listings(): Pair<List<Listing>, List<String>> {
+        val all = mutableListOf<Listing>()
+        val errors = mutableListOf<String>()
+        for (kind in ListingKind.values()) {
+            runCatching {
+                val (code, text) = call("GET", kind.listPath)
+                if (code !in 200..299) throw ApiException(code, "HTTP $code")
+                all += Listing.parse(text, kind)
+            }.onFailure { errors += "${kind.label}: ${it.message}" }
+        }
+        return all to errors
+    }
+
+    suspend fun setPaused(listing: Listing, pause: Boolean): Result<Unit> = runCatching {
+        val template = if (pause) listing.kind.pausePath else listing.kind.resumePath
+        val (code, _) = call(listing.kind.method, template.replace("{id}", listing.id))
+        ok(code, "Could not ${if (pause) "pause" else "resume"}")
+    }
+
+    suspend fun setPrice(listing: Listing, amount: Double, currency: String): Result<Unit> = runCatching {
+        val body = JSONObject().put("amount", amount).put("currency", currency).toString()
+        val (code, _) = call("PUT", listing.kind.pricePath.replace("{id}", listing.id), body)
+        ok(code, "Could not change the price")
+    }
+
+    suspend fun setQuantity(listing: Listing, quantity: Int): Result<Unit> = runCatching {
+        val path = listing.kind.quantityPath
+            ?: throw ApiException(0, "Stock can't be edited for this type of listing")
+        val (code, _) = call("PUT", path.replace("{id}", listing.id), quantity.toString())
+        ok(code, "Could not change the stock")
+    }
+
+    suspend fun deleteListing(listing: Listing): Result<Unit> = runCatching {
+        val (code, _) = call("DELETE", listing.kind.deletePath.replace("{id}", listing.id))
+        ok(code, "Could not delete the listing")
+    }
+
+    // ───────── store status ─────────
+
+    suspend fun setStoreOnline(online: Boolean): Result<Unit> = runCatching {
+        val (code, _) = call("PUT", if (online) Endpoints.ONLINE else Endpoints.OFFLINE)
+        ok(code, "Could not switch ${if (online) "online" else "offline"}")
+    }
+
+    // ───────── notifications ─────────
+
+    suspend fun notifications(): Result<List<AppNotification>> = runCatching {
+        val (code, text) = call("GET", Endpoints.NOTIFICATIONS)
+        ok(code, "Could not load notifications")
+        AppNotification.parse(text)
+    }
+
+    suspend fun unreadCount(): Result<Int> = runCatching {
+        val (code, text) = call("GET", Endpoints.UNREAD)
+        ok(code, "Could not load the unread count")
+        JSONObject(text).optInt("unread", 0)
+    }
+
+    suspend fun markRead(id: String): Result<Unit> = runCatching {
+        val (code, _) = call("PUT", Endpoints.READ_ONE.replace("{id}", id))
+        ok(code, "Could not mark as read")
+    }
+
+    suspend fun markAllRead(): Result<Unit> = runCatching {
+        val (code, _) = call("PUT", Endpoints.READ_ALL)
+        ok(code, "Could not mark all as read")
+    }
+
+    // ───────── boosting ─────────
+
+    suspend fun boostingRequests(): Result<List<BoostRequest>> = runCatching {
+        val (code, text) = call("GET", Endpoints.BOOST_REQUESTS)
+        ok(code, "Could not load boosting requests")
+        Boosting.parseRequests(text)
+    }
+
+    suspend fun boostingSubs(): Result<List<BoostSub>> = runCatching {
+        val (code, text) = call("GET", Endpoints.BOOST_SUBS)
+        ok(code, "Could not load boosting subscriptions")
+        Boosting.parseSubs(text)
     }
 }

@@ -66,6 +66,7 @@ import com.sellerdesk.app.MainViewModel
 import com.sellerdesk.app.OrderMonitorService
 import com.sellerdesk.app.alert.AlertCenter
 import com.sellerdesk.app.data.Order
+import com.sellerdesk.app.data.prettyDate
 import kotlinx.coroutines.delay
 
 @Composable
@@ -145,6 +146,7 @@ fun Home(vm: MainViewModel, requestNotifications: () -> Unit) {
     var showSettings by remember { mutableStateOf(false) }
     var detailId by remember { mutableStateOf<String?>(null) }
     var onlyOpen by remember { mutableStateOf(true) }
+    var tab by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) { requestNotifications() }
 
@@ -154,6 +156,7 @@ fun Home(vm: MainViewModel, requestNotifications: () -> Unit) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
                 vm.refresh()
+                vm.refreshUnread()
                 delay(15_000)
             }
         }
@@ -167,7 +170,13 @@ fun Home(vm: MainViewModel, requestNotifications: () -> Unit) {
     when {
         showSettings -> SettingsScreen(vm, onBack = { showSettings = false })
         detail != null -> DetailScreen(vm, detail, onBack = { detailId = null })
-        else -> {
+        else -> Column(Modifier.fillMaxSize()) {
+          Box(Modifier.weight(1f)) {
+            when (tab) {
+              1 -> ListingsTab(vm) { showSettings = true }
+              2 -> InboxTab(vm) { showSettings = true }
+              3 -> StoreTab(vm) { showSettings = true }
+              else -> {
             val shown = if (onlyOpen) vm.orders.filter { it.needsAction } else vm.orders
             Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
                 Spacer(Modifier.height(20.dp))
@@ -234,6 +243,13 @@ fun Home(vm: MainViewModel, requestNotifications: () -> Unit) {
                     }
                 }
             }
+              }
+            }
+          }
+          BottomTabs(
+              listOf("Orders", "Listings", if (vm.unread > 0) "Inbox ${vm.unread}" else "Inbox", "Store"),
+              tab,
+          ) { tab = it }
         }
     }
 }
@@ -304,6 +320,8 @@ fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
     var confirmCancel by remember { mutableStateOf(false) }
     var cancelReason by remember { mutableStateOf(CANCEL_REASONS.first().first) }
     var confirmDeliver by remember { mutableStateOf(false) }
+    var showExtend by remember { mutableStateOf(false) }
+    var showCorrection by remember { mutableStateOf(false) }
     val busy = vm.busyId == order.id
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
@@ -323,8 +341,35 @@ fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Field("Buyer", order.buyer)
                 Field("Amount", order.amount)
-                Field("Created", order.createdAt.ifEmpty { "-" })
+                if (order.quantity.isNotEmpty()) Field("Quantity", order.quantity)
+                Field("Created", prettyDate(order.createdAt))
                 Field("Order ID", order.id, mono = true)
+            }
+        }
+
+        if (order.review.isNotEmpty() || order.dispute.isNotEmpty() ||
+            order.cancelation.isNotEmpty() || order.history.isNotEmpty()
+        ) {
+            Spacer(Modifier.height(12.dp))
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    if (order.review.isNotEmpty()) {
+                        Field(
+                            "Buyer review",
+                            order.review + if (order.reviewMessage.isNotEmpty()) " - ${order.reviewMessage}" else "",
+                        )
+                    }
+                    if (order.dispute.isNotEmpty()) Field("Dispute", order.dispute)
+                    if (order.cancelation.isNotEmpty()) Field("Cancelation", order.cancelation)
+                    if (order.history.isNotEmpty()) {
+                        Field("History", order.history.joinToString("\n") { "${it.first}  ${prettyDate(it.second)}" })
+                    }
+                }
             }
         }
 
@@ -349,6 +394,34 @@ fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             modifier = Modifier.fillMaxWidth().height(54.dp),
         ) { Text("Cancel order") }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(
+            onClick = { showExtend = true },
+            enabled = !busy && order.needsAction,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+        ) { Text("Extend delivery time") }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(
+            onClick = { showCorrection = true },
+            enabled = !busy && order.needsAction,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+        ) { Text("Ask buyer to fix details") }
+        Spacer(Modifier.height(24.dp))
+    }
+
+    if (showExtend) {
+        ExtendDialog(onDismiss = { showExtend = false }) { time, reason ->
+            showExtend = false
+            vm.extendDelivery(order, time, reason) {}
+        }
+    }
+    if (showCorrection) {
+        CorrectionDialog(onDismiss = { showCorrection = false }) { message ->
+            showCorrection = false
+            vm.requestCorrection(order, message) {}
+        }
     }
 
     if (confirmDeliver) {
