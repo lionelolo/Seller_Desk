@@ -17,13 +17,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -57,26 +58,6 @@ import com.sellerdesk.app.data.prettyDate
 
 // ───────────────────────── Shared bits ─────────────────────────
 
-@Composable
-fun BottomTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
-    Column {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
-            labels.forEachIndexed { i, name ->
-                TextButton(onClick = { onSelect(i) }, modifier = Modifier.weight(1f)) {
-                    Text(
-                        name,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (i == selected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun TabHeader(title: String, loading: Boolean, onRefresh: () -> Unit, onSettings: () -> Unit) {
@@ -86,9 +67,9 @@ private fun TabHeader(title: String, loading: Boolean, onRefresh: () -> Unit, on
             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
             Spacer(Modifier.width(8.dp))
         } else {
-            TextButton(onClick = onRefresh) { Text("Refresh") }
+            JTextButton(onClick = onRefresh) { Text("Refresh") }
         }
-        TextButton(onClick = onSettings) { Text("Settings") }
+        JTextButton(onClick = onSettings) { Text("Settings") }
     }
 }
 
@@ -110,9 +91,9 @@ private fun Chip(text: String, highlight: Boolean) {
 @Composable
 private fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Surface(
-        shape = RoundedCornerShape(18.dp),
+        shape = Big,
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier,
         content = content,
     )
@@ -154,14 +135,14 @@ fun ListingsTab(vm: MainViewModel, onSettings: () -> Unit) {
 
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = filter == 0, onClick = { filter = 0 }, label = { Text("All ${vm.listings.size}") })
-            FilterChip(selected = filter == 1, onClick = { filter = 1 }, label = { Text("Active $active") })
-            FilterChip(selected = filter == 2, onClick = { filter = 2 }, label = { Text("Paused $paused") })
+            JFilterChip(selected = filter == 0, onClick = { filter = 0 }, label = { Text("All ${vm.listings.size}") })
+            JFilterChip(selected = filter == 1, onClick = { filter = 1 }, label = { Text("Active $active") })
+            JFilterChip(selected = filter == 2, onClick = { filter = 2 }, label = { Text("Paused $paused") })
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { bulk = 1 }, enabled = active > 0 && !vm.bulkBusy) { Text("Pause all") }
-            TextButton(onClick = { bulk = 2 }, enabled = paused > 0 && !vm.bulkBusy) { Text("Resume all") }
+            JTextButton(onClick = { bulk = 1 }, enabled = active > 0 && !vm.bulkBusy) { Text("Pause all") }
+            JTextButton(onClick = { bulk = 2 }, enabled = paused > 0 && !vm.bulkBusy) { Text("Resume all") }
             if (vm.bulkBusy) {
                 Spacer(Modifier.width(8.dp))
                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -185,8 +166,10 @@ fun ListingsTab(vm: MainViewModel, onSettings: () -> Unit) {
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(shown, key = { it.kind.name + it.id }) { l ->
-                    ListingCard(l, vm, onEdit = { editing = l }, onDelete = { deleting = l })
+                itemsIndexed(shown, key = { _, it -> it.kind.name + it.id }) { i, l ->
+                    Box(Modifier.jellyItem(i)) {
+                        ListingCard(l, vm, onEdit = { editing = l }, onDelete = { deleting = l })
+                    }
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }
@@ -209,11 +192,11 @@ fun ListingsTab(vm: MainViewModel, onSettings: () -> Unit) {
             title = { Text("Delete this listing?") },
             text = { Text("\"${l.title}\" will be removed from Eldorado. This can't be undone from here. To hide it for a while, use Pause instead.") },
             confirmButton = {
-                TextButton(onClick = { deleting = null; vm.deleteListing(l) }) {
+                JTextButton(onClick = { deleting = null; vm.deleteListing(l) }) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Keep it") } },
+            dismissButton = { JTextButton(onClick = { deleting = null }) { Text("Keep it") } },
         )
     }
     if (bulk != 0) {
@@ -229,9 +212,9 @@ fun ListingsTab(vm: MainViewModel, onSettings: () -> Unit) {
                 )
             },
             confirmButton = {
-                TextButton(onClick = { bulk = 0; vm.bulkPause(pause) }) { Text(if (pause) "Pause all" else "Resume all") }
+                JTextButton(onClick = { bulk = 0; vm.bulkPause(pause) }) { Text(if (pause) "Pause all" else "Resume all") }
             },
-            dismissButton = { TextButton(onClick = { bulk = 0 }) { Text("Cancel") } },
+            dismissButton = { JTextButton(onClick = { bulk = 0 }) { Text("Cancel") } },
         )
     }
 }
@@ -264,10 +247,10 @@ private fun ListingCard(l: Listing, vm: MainViewModel, onEdit: () -> Unit, onDel
                     Spacer(Modifier.width(16.dp))
                 } else {
                     if (l.isActive || l.isPaused) {
-                        TextButton(onClick = { vm.togglePause(l) }) { Text(if (l.isActive) "Pause" else "Resume") }
+                        JTextButton(onClick = { vm.togglePause(l) }) { Text(if (l.isActive) "Pause" else "Resume") }
                     }
-                    TextButton(onClick = onEdit) { Text("Edit") }
-                    TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                    JTextButton(onClick = onEdit) { Text("Edit") }
+                    JTextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
                 }
             }
         }
@@ -300,7 +283,7 @@ private fun EditListingDialog(l: Listing, onDismiss: () -> Unit, onSave: (Double
                     label = { Text("Price per unit (${l.currency.ifEmpty { "USD" }})") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = Soft,
                 )
                 Spacer(Modifier.height(10.dp))
                 if (canQty) {
@@ -310,7 +293,7 @@ private fun EditListingDialog(l: Listing, onDismiss: () -> Unit, onSave: (Double
                         label = { Text("Stock") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = Soft,
                     )
                 } else {
                     Hint("Stock for account listings is managed on Eldorado.")
@@ -320,7 +303,7 @@ private fun EditListingDialog(l: Listing, onDismiss: () -> Unit, onSave: (Double
             }
         },
         confirmButton = {
-            TextButton(
+            JTextButton(
                 enabled = priceOk && qtyOk && (priceChanged || qtyChanged),
                 onClick = {
                     onSave(
@@ -330,7 +313,7 @@ private fun EditListingDialog(l: Listing, onDismiss: () -> Unit, onSave: (Double
                 },
             ) { Text("Save") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { JTextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -351,7 +334,7 @@ fun InboxTab(vm: MainViewModel, onSettings: () -> Unit) {
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = { vm.markAllRead() }) { Text("Mark all read") }
+                JTextButton(onClick = { vm.markAllRead() }) { Text("Mark all read") }
             }
         }
 
@@ -372,7 +355,9 @@ fun InboxTab(vm: MainViewModel, onSettings: () -> Unit) {
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(vm.notifications, key = { it.id }) { n -> NotificationCard(n) { vm.markRead(n) } }
+                itemsIndexed(vm.notifications, key = { _, it -> it.id }) { i, n ->
+                    Box(Modifier.jellyItem(i)) { NotificationCard(n) { vm.markRead(n) } }
+                }
                 item { Spacer(Modifier.height(24.dp)) }
             }
         }
@@ -381,17 +366,19 @@ fun InboxTab(vm: MainViewModel, onSettings: () -> Unit) {
 
 @Composable
 private fun NotificationCard(n: AppNotification, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
+        interactionSource = src,
+        shape = Big,
         color = if (n.unread) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        modifier = Modifier.fillMaxWidth(),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().jellyPress(src, 0.96f),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
             Box(
                 Modifier.padding(top = 6.dp).size(10.dp).clip(CircleShape)
-                    .background(if (n.unread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+                    .background(if (n.unread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -445,16 +432,16 @@ fun StoreTab(vm: MainViewModel, onSettings: () -> Unit) {
                 Hint("Eldorado doesn't tell the app your current status, so this shows what you last set here.")
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
+                    JButton(
                         onClick = { vm.setOnline(true) },
                         enabled = !vm.storeBusy,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = Pill,
                         modifier = Modifier.weight(1f).height(48.dp),
                     ) { Text("Go online") }
-                    OutlinedButton(
+                    JOutlinedButton(
                         onClick = { vm.setOnline(false) },
                         enabled = !vm.storeBusy,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = Pill,
                         modifier = Modifier.weight(1f).height(48.dp),
                     ) { Text("Go offline") }
                 }
@@ -556,10 +543,10 @@ fun StoreTab(vm: MainViewModel, onSettings: () -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     listOf(7, 30, 90).forEach { d ->
-                        OutlinedButton(
+                        JOutlinedButton(
                             onClick = { vm.invoice(d) },
                             enabled = !vm.invoiceBusy,
-                            shape = RoundedCornerShape(14.dp),
+                            shape = Pill,
                             modifier = Modifier.weight(1f).height(48.dp),
                         ) { Text("$d days") }
                     }
@@ -583,11 +570,11 @@ fun StoreTab(vm: MainViewModel, onSettings: () -> Unit) {
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(12.dp))
-                OutlinedButton(
+                JOutlinedButton(
                     onClick = {
                         ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.eldorado.gg/dashboard")))
                     },
-                    shape = RoundedCornerShape(14.dp),
+                    shape = Pill,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                 ) { Text("Open Eldorado dashboard") }
             }
@@ -599,9 +586,9 @@ fun StoreTab(vm: MainViewModel, onSettings: () -> Unit) {
 @Composable
 private fun StatTile(label: String, value: String, modifier: Modifier = Modifier, highlight: Boolean = false) {
     Surface(
-        shape = RoundedCornerShape(18.dp),
+        shape = Big,
         color = if (highlight) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier,
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -665,8 +652,8 @@ fun ExtendDialog(onDismiss: () -> Unit, onConfirm: (time: String, reason: String
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(time, reason) }) { Text("Extend") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { JTextButton(onClick = { onConfirm(time, reason) }) { Text("Extend") } },
+        dismissButton = { JTextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -687,14 +674,14 @@ fun CorrectionDialog(onDismiss: () -> Unit, onConfirm: (message: String) -> Unit
                     value = message,
                     onValueChange = { message = it },
                     label = { Text("What's wrong?") },
-                    shape = RoundedCornerShape(14.dp),
+                    shape = Soft,
                     minLines = 3,
                 )
             }
         },
         confirmButton = {
-            TextButton(enabled = message.isNotBlank(), onClick = { onConfirm(message.trim()) }) { Text("Send") }
+            JTextButton(enabled = message.isNotBlank(), onClick = { onConfirm(message.trim()) }) { Text("Send") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { JTextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

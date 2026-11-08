@@ -27,11 +27,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sellerdesk.app.alert.AlertCenter
+import com.sellerdesk.app.ui.JButton
+import com.sellerdesk.app.ui.JOutlinedButton
 import com.sellerdesk.app.ui.SellerTheme
+import com.sellerdesk.app.ui.jellyPulse
+import androidx.compose.foundation.BorderStroke
 
 /** Full-screen "you have an order" screen that appears over the lock screen. */
 class AlertActivity : ComponentActivity() {
     private var text by mutableStateOf("")
+    private var title by mutableStateOf("")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,6 +45,7 @@ class AlertActivity : ComponentActivity() {
         setTurnScreenOn(true)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         text = Graph.store.pendingText
+        title = Graph.store.pendingTitle
         setContent {
             SellerTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.primary) {
@@ -49,7 +55,8 @@ class AlertActivity : ComponentActivity() {
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            "New order",
+                            title,
+                            modifier = Modifier.jellyPulse(),
                             style = MaterialTheme.typography.headlineLarge,
                             color = MaterialTheme.colorScheme.onPrimary,
                             textAlign = TextAlign.Center,
@@ -62,7 +69,7 @@ class AlertActivity : ComponentActivity() {
                             textAlign = TextAlign.Center,
                         )
                         Spacer(Modifier.height(48.dp))
-                        Button(
+                        JButton(
                             onClick = { openOrders() },
                             modifier = Modifier.fillMaxWidth().height(56.dp),
                             shape = RoundedCornerShape(16.dp),
@@ -72,13 +79,14 @@ class AlertActivity : ComponentActivity() {
                             ),
                         ) { Text("Open orders") }
                         Spacer(Modifier.height(12.dp))
-                        OutlinedButton(
+                        JOutlinedButton(
                             onClick = { stopAlarm() },
                             modifier = Modifier.fillMaxWidth().height(56.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.onPrimary,
                             ),
+                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.onPrimary),
                         ) { Text("Stop alarm") }
                     }
                 }
@@ -89,6 +97,7 @@ class AlertActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         text = Graph.store.pendingText
+        title = Graph.store.pendingTitle
     }
 
     private fun stopAlarm() {

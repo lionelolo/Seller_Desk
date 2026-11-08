@@ -22,12 +22,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,6 +44,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -87,12 +90,13 @@ fun LoginScreen(vm: MainViewModel) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp),
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("SellerDesk", style = MaterialTheme.typography.headlineLarge)
+        Text("SellerDesk", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.jellyIn(0))
         Spacer(Modifier.height(8.dp))
         Text(
             "Your Eldorado orders, with an alarm you can't sleep through.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.jellyIn(60),
         )
         Spacer(Modifier.height(36.dp))
 
@@ -100,8 +104,8 @@ fun LoginScreen(vm: MainViewModel) {
             value = id, onValueChange = { id = it },
             label = { Text("Client ID") },
             singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth(),
+            shape = Soft,
+            modifier = Modifier.fillMaxWidth().jellyIn(120),
         )
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
@@ -109,19 +113,19 @@ fun LoginScreen(vm: MainViewModel) {
             label = { Text("Client secret") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth(),
+            shape = Soft,
+            modifier = Modifier.fillMaxWidth().jellyIn(180),
         )
         vm.loginError?.let {
             Spacer(Modifier.height(10.dp))
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         }
         Spacer(Modifier.height(22.dp))
-        Button(
+        JButton(
             onClick = { vm.login(id, secret) },
             enabled = !vm.loginBusy,
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = Pill,
+            modifier = Modifier.fillMaxWidth().height(54.dp).jellyIn(240),
         ) {
             if (vm.loginBusy) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
@@ -168,10 +172,15 @@ fun Home(vm: MainViewModel, requestNotifications: () -> Unit) {
     }
 
     when {
-        showSettings -> SettingsScreen(vm, onBack = { showSettings = false })
-        detail != null -> DetailScreen(vm, detail, onBack = { detailId = null })
+        showSettings -> Box(Modifier.fillMaxSize().jellyIn(from = 0.86f, origin = TransformOrigin(0.92f, 0.04f))) {
+            SettingsScreen(vm, onBack = { showSettings = false })
+        }
+        detail != null -> Box(Modifier.fillMaxSize().jellyIn(from = 0.9f, origin = TransformOrigin(0.5f, 0.2f))) {
+            DetailScreen(vm, detail, onBack = { detailId = null })
+        }
         else -> Column(Modifier.fillMaxSize()) {
           Box(Modifier.weight(1f)) {
+            key(tab) { Box(Modifier.fillMaxSize().jellyIn(from = 0.94f, origin = TransformOrigin(0.5f, 0.1f))) {
             when (tab) {
               1 -> ListingsTab(vm) { showSettings = true }
               2 -> InboxTab(vm) { showSettings = true }
@@ -186,15 +195,15 @@ fun Home(vm: MainViewModel, requestNotifications: () -> Unit) {
                         CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
                     }
-                    TextButton(onClick = { showSettings = true }) { Text("Settings") }
+                    JTextButton(onClick = { showSettings = true }) { Text("Settings") }
                 }
 
                 if (vm.alarmActive) {
                     Spacer(Modifier.height(8.dp))
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = Big,
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().jellyIn(from = 0.7f),
                     ) {
                         Row(
                             Modifier.padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
@@ -206,15 +215,15 @@ fun Home(vm: MainViewModel, requestNotifications: () -> Unit) {
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.weight(1f),
                             )
-                            TextButton(onClick = { vm.stopAlarm() }) { Text("Stop alarm") }
+                            JTextButton(onClick = { vm.stopAlarm() }) { Text("Stop alarm") }
                         }
                     }
                 }
 
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = onlyOpen, onClick = { onlyOpen = true }, label = { Text("Needs action") })
-                    FilterChip(selected = !onlyOpen, onClick = { onlyOpen = false }, label = { Text("All") })
+                    JFilterChip(selected = onlyOpen, onClick = { onlyOpen = true }, label = { Text("Needs action") })
+                    JFilterChip(selected = !onlyOpen, onClick = { onlyOpen = false }, label = { Text("All") })
                 }
 
                 vm.error?.let {
@@ -238,13 +247,16 @@ fun Home(vm: MainViewModel, requestNotifications: () -> Unit) {
                     }
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(shown, key = { it.id }) { o -> OrderCard(o) { detailId = o.id } }
+                        itemsIndexed(shown, key = { _, it -> it.id }) { i, o ->
+                            Box(Modifier.jellyItem(i)) { OrderCard(o) { detailId = o.id } }
+                        }
                         item { Spacer(Modifier.height(24.dp)) }
                     }
                 }
             }
               }
             }
+            } }
           }
           BottomTabs(
               listOf("Orders", "Listings", if (vm.unread > 0) "Inbox ${vm.unread}" else "Inbox", "Store"),
@@ -256,12 +268,14 @@ fun Home(vm: MainViewModel, requestNotifications: () -> Unit) {
 
 @Composable
 private fun OrderCard(order: Order, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
+        interactionSource = src,
+        shape = Big,
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        modifier = Modifier.fillMaxWidth(),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().jellyPress(src, 0.96f),
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.Top) {
@@ -325,7 +339,7 @@ fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
     val busy = vm.busyId == order.id
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
-        TextButton(onClick = onBack) { Text("< Back") }
+        JTextButton(onClick = onBack) { Text("< Back") }
         Spacer(Modifier.height(8.dp))
         Text(order.title, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(6.dp))
@@ -333,9 +347,9 @@ fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
         Spacer(Modifier.height(24.dp))
 
         Surface(
-            shape = RoundedCornerShape(18.dp),
+            shape = Big,
             color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -347,17 +361,20 @@ fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
             }
         }
 
-        if (order.review.isNotEmpty() || order.dispute.isNotEmpty() ||
+        if (order.review.isNotEmpty() || order.dispute.isNotEmpty() || order.conversation.isNotEmpty() ||
             order.cancelation.isNotEmpty() || order.history.isNotEmpty()
         ) {
             Spacer(Modifier.height(12.dp))
             Surface(
-                shape = RoundedCornerShape(18.dp),
+                shape = Big,
                 color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    if (order.conversation.isNotEmpty()) {
+                        Field("Buyer message (reply on Eldorado)", order.conversation)
+                    }
                     if (order.review.isNotEmpty()) {
                         Field(
                             "Buyer review",
@@ -374,10 +391,10 @@ fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
         }
 
         Spacer(Modifier.height(28.dp))
-        Button(
+        JButton(
             onClick = { confirmDeliver = true },
             enabled = !busy && order.needsAction,
-            shape = RoundedCornerShape(14.dp),
+            shape = Pill,
             modifier = Modifier.fillMaxWidth().height(54.dp),
         ) {
             if (busy) {
@@ -387,25 +404,25 @@ fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
             }
         }
         Spacer(Modifier.height(10.dp))
-        OutlinedButton(
+        JOutlinedButton(
             onClick = { confirmCancel = true },
             enabled = !busy && order.needsAction,
-            shape = RoundedCornerShape(14.dp),
+            shape = Pill,
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             modifier = Modifier.fillMaxWidth().height(54.dp),
         ) { Text("Cancel order") }
         Spacer(Modifier.height(10.dp))
-        OutlinedButton(
+        JOutlinedButton(
             onClick = { showExtend = true },
             enabled = !busy && order.needsAction,
-            shape = RoundedCornerShape(14.dp),
+            shape = Pill,
             modifier = Modifier.fillMaxWidth().height(54.dp),
         ) { Text("Extend delivery time") }
         Spacer(Modifier.height(10.dp))
-        OutlinedButton(
+        JOutlinedButton(
             onClick = { showCorrection = true },
             enabled = !busy && order.needsAction,
-            shape = RoundedCornerShape(14.dp),
+            shape = Pill,
             modifier = Modifier.fillMaxWidth().height(54.dp),
         ) { Text("Ask buyer to fix details") }
         Spacer(Modifier.height(24.dp))
@@ -430,9 +447,9 @@ fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
             title = { Text("Mark as delivered?") },
             text = { Text("Only do this after you've actually delivered the goods. The buyer is notified on Eldorado.") },
             confirmButton = {
-                TextButton(onClick = { confirmDeliver = false; vm.markDelivered(order, onBack) }) { Text("Yes, delivered") }
+                JTextButton(onClick = { confirmDeliver = false; vm.markDelivered(order, onBack) }) { Text("Yes, delivered") }
             },
-            dismissButton = { TextButton(onClick = { confirmDeliver = false }) { Text("Not yet") } },
+            dismissButton = { JTextButton(onClick = { confirmDeliver = false }) { Text("Not yet") } },
         )
     }
     if (confirmCancel) {
@@ -455,11 +472,11 @@ fun DetailScreen(vm: MainViewModel, order: Order, onBack: () -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = { confirmCancel = false; vm.cancel(order, cancelReason, onBack) }) {
+                JTextButton(onClick = { confirmCancel = false; vm.cancel(order, cancelReason, onBack) }) {
                     Text("Cancel order", color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmCancel = false }) { Text("Keep it") } },
+            dismissButton = { JTextButton(onClick = { confirmCancel = false }) { Text("Keep it") } },
         )
     }
 }
@@ -488,6 +505,7 @@ fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
 
     var alerts by remember { mutableStateOf(store.alertsEnabled) }
     var loud by remember { mutableStateOf(store.loud) }
+    var msgAlerts by remember { mutableStateOf(store.alertMessages) }
     var diag by remember { mutableStateOf(store.lastDiag) }
     var confirmLogout by remember { mutableStateOf(false) }
 
@@ -498,15 +516,15 @@ fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
-        TextButton(onClick = onBack) { Text("< Back") }
+        JTextButton(onClick = onBack) { Text("< Back") }
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(20.dp))
 
         SectionTitle("Alert readiness")
         Surface(
-            shape = RoundedCornerShape(18.dp),
+            shape = Big,
             color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(Modifier.padding(vertical = 6.dp, horizontal = 16.dp)) {
@@ -549,19 +567,23 @@ fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
             loud = it
             store.loud = it
         }
+        ToggleRow("Also ring when a buyer contacts you", msgAlerts) {
+            msgAlerts = it
+            store.alertMessages = it
+        }
         Spacer(Modifier.height(10.dp))
-        OutlinedButton(
+        JOutlinedButton(
             onClick = {
                 AlertCenter.trigger(ctx, listOf(Order("test", "Test order", "Tester", "$1.00", "paid", "")))
             },
-            shape = RoundedCornerShape(14.dp),
+            shape = Pill,
             modifier = Modifier.fillMaxWidth().height(50.dp),
         ) { Text("Test the alarm") }
 
         Spacer(Modifier.height(24.dp))
         SectionTitle("Diagnostics")
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = Soft,
             color = MaterialTheme.colorScheme.surfaceVariant,
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -572,12 +594,12 @@ fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
                 modifier = Modifier.padding(14.dp),
             )
         }
-        TextButton(onClick = { diag = store.lastDiag }) { Text("Refresh") }
+        JTextButton(onClick = { diag = store.lastDiag }) { Text("Refresh") }
 
         Spacer(Modifier.height(16.dp))
-        OutlinedButton(
+        JOutlinedButton(
             onClick = { confirmLogout = true },
-            shape = RoundedCornerShape(14.dp),
+            shape = Pill,
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             modifier = Modifier.fillMaxWidth().height(50.dp),
         ) { Text("Log out and forget credentials") }
@@ -589,8 +611,8 @@ fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
             onDismissRequest = { confirmLogout = false },
             title = { Text("Log out?") },
             text = { Text("Alerts stop and the saved Client ID and secret are erased from this phone.") },
-            confirmButton = { TextButton(onClick = { confirmLogout = false; vm.logout() }) { Text("Log out") } },
-            dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("Stay") } },
+            confirmButton = { JTextButton(onClick = { confirmLogout = false; vm.logout() }) { Text("Log out") } },
+            dismissButton = { JTextButton(onClick = { confirmLogout = false }) { Text("Stay") } },
         )
     }
 }
@@ -610,11 +632,11 @@ private fun ReadyRow(label: String, ok: Boolean, onFix: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.size(10.dp).clip(CircleShape)
-                .background(if (ok) Color(0xFF3D8B5A) else MaterialTheme.colorScheme.error)
+                .background(if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
         )
         Spacer(Modifier.width(12.dp))
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        if (!ok) TextButton(onClick = onFix) { Text("Fix") }
+        if (!ok) JTextButton(onClick = onFix) { Text("Fix") }
     }
 }
 

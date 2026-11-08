@@ -1,7 +1,9 @@
 package com.sellerdesk.app.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -10,50 +12,90 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Warm paper-and-clay palette: calm, editorial, lots of whitespace.
+// Pure black and white. Black is "ink", white is "paper"; greys only for quiet text and hairlines.
+private val Ink = Color(0xFF000000)
+private val Paper = Color(0xFFFFFFFF)
+
 private val LightColors = lightColorScheme(
-    primary = Color(0xFFC96442),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFF6E4DC),
-    onPrimaryContainer = Color(0xFF6B2E18),
-    background = Color(0xFFFAF9F5),
-    onBackground = Color(0xFF1F1E1D),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF1F1E1D),
-    surfaceVariant = Color(0xFFF0EEE6),
-    onSurfaceVariant = Color(0xFF6B6A68),
-    outline = Color(0xFFE3DFD3),
-    error = Color(0xFFB3261E),
+    primary = Ink,
+    onPrimary = Paper,
+    primaryContainer = Ink,
+    onPrimaryContainer = Paper,
+    secondary = Ink,
+    onSecondary = Paper,
+    secondaryContainer = Ink,
+    onSecondaryContainer = Paper,
+    tertiary = Ink,
+    onTertiary = Paper,
+    background = Paper,
+    onBackground = Ink,
+    surface = Paper,
+    onSurface = Ink,
+    surfaceVariant = Color(0xFFF2F2F2),
+    onSurfaceVariant = Color(0xFF6E6E6E),
+    surfaceTint = Ink,
+    surfaceContainerLowest = Paper,
+    surfaceContainerLow = Color(0xFFF7F7F7),
+    surfaceContainer = Color(0xFFF2F2F2),
+    surfaceContainerHigh = Color(0xFFEDEDED),
+    surfaceContainerHighest = Color(0xFFE6E6E6),
+    outline = Color(0xFF9A9A9A),
+    outlineVariant = Color(0xFFE3E3E3),
+    error = Color(0xFFC62828),
+    onError = Paper,
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFD97757),
-    onPrimary = Color(0xFF1F1E1D),
-    primaryContainer = Color(0xFF4A2D22),
-    onPrimaryContainer = Color(0xFFF6E4DC),
-    background = Color(0xFF262624),
-    onBackground = Color(0xFFF5F4EE),
-    surface = Color(0xFF30302E),
-    onSurface = Color(0xFFF5F4EE),
-    surfaceVariant = Color(0xFF3A3937),
-    onSurfaceVariant = Color(0xFFB8B5AA),
-    outline = Color(0xFF4A4946),
-    error = Color(0xFFF2B8B5),
+    primary = Paper,
+    onPrimary = Ink,
+    primaryContainer = Paper,
+    onPrimaryContainer = Ink,
+    secondary = Paper,
+    onSecondary = Ink,
+    secondaryContainer = Paper,
+    onSecondaryContainer = Ink,
+    tertiary = Paper,
+    onTertiary = Ink,
+    background = Ink,
+    onBackground = Paper,
+    surface = Color(0xFF0C0C0C),
+    onSurface = Paper,
+    surfaceVariant = Color(0xFF1A1A1A),
+    onSurfaceVariant = Color(0xFF9E9E9E),
+    surfaceTint = Paper,
+    surfaceContainerLowest = Ink,
+    surfaceContainerLow = Color(0xFF0C0C0C),
+    surfaceContainer = Color(0xFF141414),
+    surfaceContainerHigh = Color(0xFF1A1A1A),
+    surfaceContainerHighest = Color(0xFF242424),
+    outline = Color(0xFF6A6A6A),
+    outlineVariant = Color(0xFF2A2A2A),
+    error = Color(0xFFEF9A9A),
+    onError = Ink,
 )
 
-private val Serif = FontFamily.Serif
+private val Sans = FontFamily.SansSerif
 
 private val AppTypography = Typography(
-    headlineLarge = TextStyle(fontFamily = Serif, fontWeight = FontWeight.Normal, fontSize = 36.sp, lineHeight = 42.sp),
-    headlineMedium = TextStyle(fontFamily = Serif, fontWeight = FontWeight.Normal, fontSize = 28.sp, lineHeight = 34.sp),
-    titleLarge = TextStyle(fontFamily = Serif, fontWeight = FontWeight.Normal, fontSize = 22.sp, lineHeight = 28.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 22.sp),
-    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
-    labelLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
-    labelMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
+    headlineLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 38.sp, lineHeight = 42.sp, letterSpacing = (-1.2).sp),
+    headlineMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 32.sp, letterSpacing = (-0.8).sp),
+    titleLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp, letterSpacing = (-0.3).sp),
+    titleMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = (-0.1).sp),
+    bodyLarge = TextStyle(fontFamily = Sans, fontSize = 16.sp, lineHeight = 24.sp),
+    bodyMedium = TextStyle(fontFamily = Sans, fontSize = 14.sp, lineHeight = 20.sp),
+    labelLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
+    labelMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
+)
+
+private val AppShapes = Shapes(
+    extraSmall = RoundedCornerShape(12.dp),
+    small = RoundedCornerShape(50),
+    medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(28.dp),
+    extraLarge = RoundedCornerShape(32.dp),
 )
 
 @Composable
@@ -61,6 +103,7 @@ fun SellerTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
         typography = AppTypography,
+        shapes = AppShapes,
         content = content,
     )
 }
