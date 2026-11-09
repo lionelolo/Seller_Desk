@@ -75,6 +75,26 @@ class CredentialStore(context: Context) {
         get() = state.getBoolean("pending", false)
         set(v) = state.edit().putBoolean("pending", v).apply()
 
+    /** Also ring when a buyer contacts you (from Eldorado notifications). */
+    var alertMessages: Boolean
+        get() = state.getBoolean("alertMessages", true)
+        set(v) = state.edit().putBoolean("alertMessages", v).apply()
+
+    var notifBaseline: Boolean
+        get() = state.getBoolean("notifBaseline", false)
+        set(v) = state.edit().putBoolean("notifBaseline", v).apply()
+
+    var seenNotifs: Set<String>
+        get() = state.getStringSet("seenNotifs", emptySet()).orEmpty()
+        set(v) {
+            val trimmed = if (v.size > 300) v.toList().takeLast(300).toSet() else v
+            state.edit().putStringSet("seenNotifs", trimmed).apply()
+        }
+
+    var pendingTitle: String
+        get() = state.getString("pendingTitle", "New order").orEmpty()
+        set(v) = state.edit().putString("pendingTitle", v).apply()
+
     var pendingText: String
         get() = state.getString("pendingText", "").orEmpty()
         set(v) = state.edit().putString("pendingText", v).apply()

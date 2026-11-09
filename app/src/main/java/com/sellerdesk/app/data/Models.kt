@@ -25,6 +25,7 @@ data class Order(
     val dispute: String = "",
     val cancelation: String = "",
     val history: List<Pair<String, String>> = emptyList(),   // (state, date)
+    val conversation: String = "",    // the buyer's opening message when they contacted you about this order
 ) {
     /** Eldorado state "Paid" = the buyer paid and the seller still has to deliver. */
     val needsAction: Boolean
@@ -60,6 +61,7 @@ data class Order(
                 dispute = reasonText(o.optJSONObject("latestDispute")),
                 cancelation = reasonText(o.optJSONObject("cancelation")),
                 history = history,
+                conversation = conversationText(o.optJSONObject("conversationDetails")),
             )
         }
 
@@ -213,6 +215,7 @@ data class AppNotification(
     val text: String,
     val date: String,
     val unread: Boolean,
+    val event: String = "",   // raw Eldorado event name, e.g. "BuyerContactedSeller"
 ) {
     companion object {
         fun parse(text: String): List<AppNotification> {
@@ -237,6 +240,7 @@ data class AppNotification(
                     },
                     date = base?.str("notificationDate").orEmpty().ifEmpty { custom?.str("notificationDate").orEmpty() },
                     unread = status.equals("IsUnread", true),
+                    event = base?.str("event").orEmpty(),
                 )
             }
         }
@@ -273,6 +277,15 @@ object Boosting {
             )
         }
     }
+}
+
+private fun conversationText(o: JSONObject?): String {
+    if (o == null) return ""
+    val body = listOf(o.str("reason").replace('_', ' '), o.str("message"))
+        .filter { it.isNotBlank() }.joinToString(" - ")
+    if (body.isEmpty()) return ""
+    val date = o.str("createdDate")
+    return if (date.isEmpty()) body else "$body  (${prettyDate(date)})"
 }
 
 private fun reasonText(o: JSONObject?): String {

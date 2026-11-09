@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -39,6 +41,7 @@ class AlertActivity : ComponentActivity() {
     private var title by mutableStateOf("")
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         Graph.init(this)
         setShowWhenLocked(true)
@@ -50,7 +53,7 @@ class AlertActivity : ComponentActivity() {
             SellerTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.primary) {
                     Column(
-                        Modifier.fillMaxSize().padding(32.dp),
+                        Modifier.fillMaxSize().systemBarsPadding().padding(32.dp),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {

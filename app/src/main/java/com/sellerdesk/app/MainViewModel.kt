@@ -107,6 +107,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 .onSuccess {
                     store.baselineDone = false
                     store.seen = emptySet()
+                    store.notifBaseline = false
+                    store.seenNotifs = emptySet()
                     store.alertsEnabled = true
                     loggedIn = true
                     OrderMonitorService.start(appCtx)

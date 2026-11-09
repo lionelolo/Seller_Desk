@@ -81,6 +81,8 @@ class OrderMonitorService : Service() {
                     if (fails >= 3) status("Can't reach Eldorado - retrying")
                 }
 
+            if (store.alertMessages) pollMessages()
+
             // Nobody tapped "Stop" yet? Ring again every 2 minutes.
             if (store.pending && store.loud && !AlarmPlayer.isPlaying &&
                 System.currentTimeMillis() - store.lastAlertAt > 120_000
@@ -88,6 +90,31 @@ class OrderMonitorService : Service() {
                 AlertCenter.retrigger(this)
             }
             delay(store.pollSeconds * 1000L)
+        }
+    }
+
+    /** Rings when Eldorado reports that a buyer contacted you. Only unread notifications count. */
+    private suspend fun pollMessages() {
+        val store = Graph.store
+        Graph.api.notifications().onSuccess { list ->
+            val chat = list.filter { it.unread && it.event in CHAT_EVENTS }
+            if (!store.notifBaseline) {
+                // First run: remember what's already there so old messages don't ring.
+                store.seenNotifs = chat.map { it.id }.toSet()
+                store.notifBaseline = true
+                return
+            }
+            val seen = store.seenNotifs
+            val fresh = chat.filter { it.id !in seen }
+            if (fresh.isNotEmpty()) {
+                store.seenNotifs = seen + fresh.map { it.id }
+                val text = if (fresh.size == 1) {
+                    listOf(fresh[0].title, fresh[0].text).filter { it.isNotEmpty() }.joinToString(" - ")
+                } else {
+                    "${fresh.size} new buyer messages"
+                }
+                AlertCenter.triggerMessage(this, text)
+            }
         }
     }
 
@@ -108,6 +135,9 @@ class OrderMonitorService : Service() {
     }
 
     companion object {
+        /** Eldorado notification events that mean "a buyer is talking to you". */
+        private val CHAT_EVENTS = setOf("BuyerContactedSeller", "ConversationCreated", "TalkJsNudge")
+
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, OrderMonitorService::class.java))
         }

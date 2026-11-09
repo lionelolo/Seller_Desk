@@ -62,16 +62,24 @@ object AlertCenter {
         } else {
             "${fresh.size} new orders waiting"
         }
+        Graph.store.pendingTitle = "New order"
         Graph.store.pendingText = text
-        raise(context, text)
+        raise(context, "New order", text)
+    }
+
+    /** A buyer contacted you (Eldorado notification). */
+    fun triggerMessage(context: Context, text: String) {
+        Graph.store.pendingTitle = "Buyer message"
+        Graph.store.pendingText = text
+        raise(context, "Buyer message", text)
     }
 
     /** Called by the service if nobody has acknowledged the alert for a while. */
     fun retrigger(context: Context) {
-        raise(context, Graph.store.pendingText.ifEmpty { "Order waiting" })
+        raise(context, Graph.store.pendingTitle, Graph.store.pendingText.ifEmpty { "Something is waiting" })
     }
 
-    private fun raise(context: Context, text: String) {
+    private fun raise(context: Context, title: String, text: String) {
         val store = Graph.store
         store.pending = true
         store.lastAlertAt = System.currentTimeMillis()
@@ -85,7 +93,7 @@ object AlertCenter {
         )
         val n = NotificationCompat.Builder(context, CH_ORDERS)
             .setSmallIcon(R.drawable.ic_stat)
-            .setContentTitle("New order!")
+            .setContentTitle(title)
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

@@ -134,7 +134,8 @@ class EldoradoApi(private val store: CredentialStore) {
                     r = exec(method, path, body)
                 }
                 // Routine polling that works shouldn't overwrite the Diagnostics of the last real action.
-                val polling = path == Endpoints.ORDERS || path == Endpoints.UNREAD
+                val polling = path == Endpoints.ORDERS || path == Endpoints.UNREAD ||
+                    path == Endpoints.NOTIFICATIONS
                 if (!(polling && r.first in 200..299)) {
                     store.lastDiag = "$method $path -> ${r.first}\n" + r.second.take(400)
                 }
