@@ -66,6 +66,9 @@ class EldoradoApi(private val store: CredentialStore) {
     private val json = "application/json".toMediaType()
     private val lock = Mutex()
 
+    /** Logging in with "demo" / "demo" opens a fake store (for Google Play review). */
+    private val isDemo: Boolean get() = store.clientId == "demo"
+
     @Volatile private var token: String? = null
     @Volatile private var tokenAt = 0L
 
@@ -149,6 +152,10 @@ class EldoradoApi(private val store: CredentialStore) {
 
     suspend fun login(id: String, secret: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
+            if (id.equals("demo", true) && secret.equals("demo", true)) {
+                store.saveCredentials("demo", "demo")
+                return@runCatching
+            }
             lock.withLock { fetchToken(id, secret) }
             store.saveCredentials(id, secret)
         }
@@ -162,29 +169,34 @@ class EldoradoApi(private val store: CredentialStore) {
     // ───────── orders ─────────
 
     suspend fun orders(): Result<List<Order>> = runCatching {
+        if (isDemo) return@runCatching Demo.orders
         val (code, text) = call("GET", Endpoints.ORDERS)
         ok(code, "Could not load orders")
         Order.parseList(text)
     }
 
     suspend fun markDelivered(id: String): Result<Unit> = runCatching {
+        if (isDemo) return@runCatching Demo.setStatus(id, "Delivered")
         val (code, _) = call("PUT", Endpoints.DELIVER.replace("{id}", id))
         ok(code, "Could not mark delivered")
     }
 
     suspend fun cancel(id: String, reason: String): Result<Unit> = runCatching {
+        if (isDemo) return@runCatching Demo.setStatus(id, "Canceled")
         val body = JSONObject().put("reason", reason).toString()
         val (code, _) = call("POST", Endpoints.CANCEL.replace("{id}", id), body)
         ok(code, "Could not cancel")
     }
 
     suspend fun extendDelivery(id: String, time: String, reason: String): Result<Unit> = runCatching {
+        if (isDemo) return@runCatching
         val body = JSONObject().put("time", time).put("reason", reason).toString()
         val (code, _) = call("POST", Endpoints.EXTEND.replace("{id}", id), body)
         ok(code, "Could not extend delivery time")
     }
 
     suspend fun requestCorrection(id: String, message: String): Result<Unit> = runCatching {
+        if (isDemo) return@runCatching
         val body = JSONObject().put("message", message).toString()
         val (code, _) = call("POST", Endpoints.CORRECTION.replace("{id}", id), body)
         ok(code, "Could not send the request")
@@ -192,6 +204,7 @@ class EldoradoApi(private val store: CredentialStore) {
 
     /** Invoice for the last [days] days. Eldorado doesn't document the file format, so we return raw bytes. */
     suspend fun invoice(days: Int): Result<Download> = runCatching {
+        if (isDemo) return@runCatching Download(200, "text/csv", "order,amount\ndemo,0.00\n".toByteArray())
         val until = Instant.now()
         val from = until.minus(days.toLong(), ChronoUnit.DAYS)
         val path = Endpoints.INVOICE +
@@ -217,6 +230,7 @@ class EldoradoApi(private val store: CredentialStore) {
 
     /** Loads the first 50 listings of each offer type. A type that fails is reported, not fatal. */
     suspend fun listings(): Pair<List<Listing>, List<String>> {
+        if (isDemo) return Demo.listings to emptyList()
         val all = mutableListOf<Listing>()
         val errors = mutableListOf<String>()
         for (kind in ListingKind.values()) {
@@ -230,18 +244,21 @@ class EldoradoApi(private val store: CredentialStore) {
     }
 
     suspend fun setPaused(listing: Listing, pause: Boolean): Result<Unit> = runCatching {
+        if (isDemo) return@runCatching Demo.setListing(listing.id) { it.copy(state = if (pause) "Paused" else "Active") }
         val template = if (pause) listing.kind.pausePath else listing.kind.resumePath
         val (code, _) = call(listing.kind.method, template.replace("{id}", listing.id))
         ok(code, "Could not ${if (pause) "pause" else "resume"}")
     }
 
     suspend fun setPrice(listing: Listing, amount: Double, currency: String): Result<Unit> = runCatching {
+        if (isDemo) return@runCatching Demo.setListing(listing.id) { it.copy(amountValue = amount, price = "$" + "%.2f".format(amount)) }
         val body = JSONObject().put("amount", amount).put("currency", currency).toString()
         val (code, _) = call("PUT", listing.kind.pricePath.replace("{id}", listing.id), body)
         ok(code, "Could not change the price")
     }
 
     suspend fun setQuantity(listing: Listing, quantity: Int): Result<Unit> = runCatching {
+        if (isDemo) return@runCatching Demo.setListing(listing.id) { it.copy(quantity = quantity.toString()) }
         val path = listing.kind.quantityPath
             ?: throw ApiException(0, "Stock can't be edited for this type of listing")
         val (code, _) = call("PUT", path.replace("{id}", listing.id), quantity.toString())
@@ -249,6 +266,7 @@ class EldoradoApi(private val store: CredentialStore) {
     }
 
     suspend fun deleteListing(listing: Listing): Result<Unit> = runCatching {
+        if (isDemo) return@runCatching Demo.delete(listing.id)
         val (code, _) = call("DELETE", listing.kind.deletePath.replace("{id}", listing.id))
         ok(code, "Could not delete the listing")
     }
@@ -256,6 +274,7 @@ class EldoradoApi(private val store: CredentialStore) {
     // ───────── store status ─────────
 
     suspend fun setStoreOnline(online: Boolean): Result<Unit> = runCatching {
+        if (isDemo) return@runCatching
         val (code, _) = call("PUT", if (online) Endpoints.ONLINE else Endpoints.OFFLINE)
         ok(code, "Could not switch ${if (online) "online" else "offline"}")
     }
@@ -263,23 +282,27 @@ class EldoradoApi(private val store: CredentialStore) {
     // ───────── notifications ─────────
 
     suspend fun notifications(): Result<List<AppNotification>> = runCatching {
+        if (isDemo) return@runCatching Demo.notifications
         val (code, text) = call("GET", Endpoints.NOTIFICATIONS)
         ok(code, "Could not load notifications")
         AppNotification.parse(text)
     }
 
     suspend fun unreadCount(): Result<Int> = runCatching {
+        if (isDemo) return@runCatching Demo.notifications.count { it.unread }
         val (code, text) = call("GET", Endpoints.UNREAD)
         ok(code, "Could not load the unread count")
         JSONObject(text).optInt("unread", 0)
     }
 
     suspend fun markRead(id: String): Result<Unit> = runCatching {
+        if (isDemo) return@runCatching Demo.readOne(id)
         val (code, _) = call("PUT", Endpoints.READ_ONE.replace("{id}", id))
         ok(code, "Could not mark as read")
     }
 
     suspend fun markAllRead(): Result<Unit> = runCatching {
+        if (isDemo) return@runCatching Demo.readAll()
         val (code, _) = call("PUT", Endpoints.READ_ALL)
         ok(code, "Could not mark all as read")
     }
@@ -287,12 +310,14 @@ class EldoradoApi(private val store: CredentialStore) {
     // ───────── boosting ─────────
 
     suspend fun boostingRequests(): Result<List<BoostRequest>> = runCatching {
+        if (isDemo) return@runCatching emptyList<BoostRequest>()
         val (code, text) = call("GET", Endpoints.BOOST_REQUESTS)
         ok(code, "Could not load boosting requests")
         Boosting.parseRequests(text)
     }
 
     suspend fun boostingSubs(): Result<List<BoostSub>> = runCatching {
+        if (isDemo) return@runCatching emptyList<BoostSub>()
         val (code, text) = call("GET", Endpoints.BOOST_SUBS)
         ok(code, "Could not load boosting subscriptions")
         Boosting.parseSubs(text)
